@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Push the image to Docker Hub (only on a release tag, e.g. v1.2.3)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: fmt, clippy, tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      # Unit tests only: they use fakes and never call the real `claude` binary or the network.
+      - run: cargo test --locked
+      - name: shellcheck
+        run: shellcheck scripts/*.sh
+
+  docker:
+    # PRs and pushes: build + smoke test + dry-run push (tags computed, nothing uploaded).
+    # Published releases, and manual runs on a v* tag with `publish` (how release.yml publishes,
+    # since its GITHUB_TOKEN release fires no event): the same, then amd64/arm64 push to Docker Hub.
+    name: Docker image (smoke test, push on release)
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      PUBLISH: ${{ github.event_name == 'release' || (inputs.publish == true && startsWith(github.ref, 'refs/tags/v')) }}
+      # Docker Hub repository, e.g. "johndoe/claude-session-starter". See docs/repository-setup.md.
+      IMAGE: ${{ vars.DOCKERHUB_IMAGE || format('{0}/claude-session-starter', vars.DOCKERHUB_USERNAME || 'local') }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+        if: env.PUBLISH == 'true'
+      - uses: docker/setup-buildx-action@v3
+      - name: Compute image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          # Releases: 1.2.3, 1.2 and latest (latest is skipped for pre-releases).
+          # Otherwise: pr-<n>, branch name and sha-<short>, which are never pushed.
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=pr
+            type=ref,event=branch
+            type=sha
+      - name: Build image (linux/amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: claude-session-starter:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test
+        # Offline, no account: both binaries run, and `start --dry-run` resolves the exact starter
+        # command (reads `claude --help`) with the dummy token redacted. Nothing is sent.
+        run: |
+          docker run --rm claude-session-starter:ci --version
+          docker run --rm --entrypoint claude claude-session-starter:ci --version
+          out=$(docker run --rm -e CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-ci-dummy-token \
+            claude-session-starter:ci start --dry-run)
+          echo "$out"
+          grep -q -- '--no-session-persistence' <<<"$out"
+          grep -q 'CLAUDE_CODE_OAUTH_TOKEN=\[redacted\]' <<<"$out"
+          if grep -q 'ci-dummy-token' <<<"$out"; then echo "::error::token leaked"; exit 1; fi
+      - name: Dry-run push
+        if: env.PUBLISH != 'true'
+        run: |
+          {
+            echo "### Docker push (dry run)"
+            echo "Nothing was pushed. Tags this build would get (releases get version tags + latest):"
+            echo '```'
+            echo "$TAGS"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "$TAGS"
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+      - name: Check Docker Hub settings
+        if: env.PUBLISH == 'true'
+        env:
+          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
+            echo "::error::Set the DOCKERHUB_USERNAME variable and DOCKERHUB_TOKEN secret (docs/repository-setup.md)"
+            exit 1
+          fi
+      - uses: docker/login-action@v3
+        if: env.PUBLISH == 'true'
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push (linux/amd64, linux/arm64)
+        if: env.PUBLISH == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

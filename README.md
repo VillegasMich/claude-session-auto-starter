@@ -51,11 +51,20 @@ docker run -d \
   claude-session-starter
 ```
 
-### As a systemd service (planned)
+Released images are published to Docker Hub (`<user>/claude-session-starter:<version>`, amd64 and
+arm64); use one instead of building it yourself.
 
-Same model as `auto-git-commit-tool`: `scripts/install.sh [docker|native]` writes
-`/etc/claude-session-starter/env` (mode 600) and installs a unit that starts on boot.
-Details: [`docs/deployment.md`](docs/deployment.md).
+### As a systemd service
+
+```bash
+export CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...   # or let the script prompt for it
+scripts/install.sh            # docker mode (default): builds the image, or pulls $IMAGE
+scripts/install.sh native     # the release binary + a private copy of your `claude`
+scripts/uninstall.sh [--purge]
+```
+
+It writes `/etc/claude-session-starter/env` (root-only, mode 600) and installs a unit that starts
+on boot. Details: [`docs/deployment.md`](docs/deployment.md#systemd).
 
 ## Command line
 
@@ -108,6 +117,7 @@ Claude config directory that cannot see your normal login.
 - [`docs/architecture.md`](docs/architecture.md) – components, detection strategies, starter command, scheduling, failure handling
 - [`docs/configuration.md`](docs/configuration.md) – every setting in detail
 - [`docs/deployment.md`](docs/deployment.md) – Docker image, authentication, systemd
+- [`docs/repository-setup.md`](docs/repository-setup.md) – CI, Docker Hub publishing, releasing
 - [`CLAUDE.md`](CLAUDE.md) – guidance for AI coding assistants working in this repo
 
 ## Development
@@ -117,7 +127,12 @@ cargo build
 cargo test
 cargo clippy --all-targets -- -D warnings
 cargo fmt
+shellcheck scripts/*.sh
 ```
+
+Releases: *Actions* → **Release** (bumps the version from the Conventional Commits, tags, creates
+the GitHub release and publishes the image). See
+[`docs/repository-setup.md`](docs/repository-setup.md#releasing).
 
 Running locally requires `claude` on your `PATH` and a `CLAUDE_CODE_OAUTH_TOKEN` (the starter
 uses an isolated config directory, so your normal `claude` login is not visible to it). Debug

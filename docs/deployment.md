@@ -59,24 +59,77 @@ docker exec claude-session-starter claude-session-starter status
 
 `--restart unless-stopped` makes it survive reboots. For a proper host service use systemd below.
 
-## systemd (planned)
+## Published image
 
-`scripts/install.sh [docker|native]`, mirroring `auto-git-commit-tool`:
+Each release pushes `<user>/claude-session-starter` to Docker Hub with tags `<version>`
+(e.g. `1.2.3`), `<major>.<minor>` and `latest` (not for pre-releases), for `linux/amd64` and
+`linux/arm64`. Use it in place of the locally built `claude-session-starter` in the `docker run`
+above, or with `IMAGE=` in systemd mode below. How images are built and released:
+[repository-setup.md](repository-setup.md).
 
-1. Checks host requirements for the mode.
-2. Reads `CLAUDE_CODE_OAUTH_TOKEN` from the environment (or prompts for it).
-3. Builds the image, or installs the release binary to `/usr/local/bin`.
-4. Writes `/etc/claude-session-starter/env` (root-only, mode 600). Kept unless `--reconfigure`.
-5. Installs `/etc/systemd/system/claude-session-starter.service`, enables and (re)starts it.
+## systemd
 
-Units wait for `network-online.target` and use `Restart=always`. The native unit uses
-`DynamicUser=yes` with `StateDirectory=claude-session-starter` as `DATA_DIR`, so it never touches
-the user's own `~/.claude`.
+```bash
+export CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-...   # optional: otherwise a hidden prompt asks
+scripts/install.sh [docker|native] [--reconfigure]
+```
+
+Run it as your normal user; it uses `sudo` only for system changes. It:
+
+1. Checks host requirements for the mode, and refuses to run with `ANTHROPIC_API_KEY` or
+   `ANTHROPIC_AUTH_TOKEN` set.
+2. Reads `CLAUDE_CODE_OAUTH_TOKEN` from the environment (or prompts for it, hidden) and checks it
+   looks like a subscription token (`sk-ant-oat01-…`). It never appears on a command line.
+3. **docker:** builds the image as `claude-session-starter:latest`, or pulls `IMAGE` when it is
+   exported or in the env file (e.g. `IMAGE=<user>/claude-session-starter:1.2.3`).
+   **native:** installs `target/release/claude-session-starter` (built with cargo if missing) to
+   `/usr/local/bin`, and copies the host's `claude` binary to
+   `/usr/local/lib/claude-session-starter/claude`.
+4. Writes `/etc/claude-session-starter/env` (root-only, mode 600) with the token and any of
+   `ACTIVE_HOURS`, `TIMEZONE`, `DETECTION`, `CHECK_INTERVAL_MINUTES`, `STARTER_MODEL`,
+   `STARTER_PROMPT`, `RUST_LOG`, `IMAGE` that are exported. An existing file is kept unless
+   `--reconfigure`, except that an exported `IMAGE` replaces the one in it.
+5. Installs `/etc/systemd/system/claude-session-starter.service` from
+   [`deploy/systemd/`](../deploy/systemd), enables and (re)starts it.
+
+Both units wait for `network-online.target` and use `Restart=always` (60 s apart), so a bad token
+or a missing network shows up as repeated failures in the journal rather than a dead service.
+
+| Mode     | Unit runs                                                                  | State              |
+| -------- | -------------------------------------------------------------------------- | ------------------ |
+| `docker` | `docker run --env-file /etc/claude-session-starter/env -v claude-session-starter-data:/data $IMAGE daemon` | Docker volume `claude-session-starter-data` |
+| `native` | `claude-session-starter daemon` with `DynamicUser=yes`, hardened (`ProtectHome`, `ProtectSystem=strict`, …) | `StateDirectory=` `/var/lib/claude-session-starter` (= `DATA_DIR`) |
+
+The native unit never touches a user's own `~/.claude`: `ProtectHome=yes` hides home directories,
+which is why it runs its own copy of `claude` (and why that must be the self-contained binary from
+the native installer, not the npm package). The copy doesn't auto-update; re-run
+`scripts/install.sh native` to pick up a newer `claude`. Don't set `DATA_DIR` or `PATH` in the env
+file: they would override the unit's.
 
 ```bash
 systemctl status claude-session-starter
 journalctl -u claude-session-starter -f
+docker exec claude-session-starter claude-session-starter status   # docker mode
 ```
+
+### Upgrading
+
+- **Locally built:** pull the repository and re-run `scripts/install.sh [docker|native]`. The env
+  file and state are kept.
+- **Published image:** `IMAGE=<user>/claude-session-starter:1.2.3 scripts/install.sh` (pulls it,
+  updates `IMAGE` in the env file, restarts).
+- **Claude Code in the image:** it is pinned by `CLAUDE_CODE_VERSION` in the `Dockerfile`; a new
+  release (or a local rebuild) picks up a new pin.
+
+### Uninstalling
+
+```bash
+scripts/uninstall.sh            # stop and remove the unit; keep env file, state, image, volume
+scripts/uninstall.sh --purge    # also delete the env file (token), state, binaries, image, volume
+```
+
+A purge deletes the token from this machine but does not revoke it; it stays valid until it
+expires.
 
 ## Running without Docker
 

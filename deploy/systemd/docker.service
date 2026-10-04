@@ -1,0 +1,28 @@
+# Runs claude-session-starter as a Docker container. Installed by scripts/install.sh, which
+# replaces @DOCKER@ with the path to the docker binary. IMAGE defaults to the locally built
+# image; set IMAGE in the env file (e.g. <user>/claude-session-starter:1.2.3) to run a published one.
+[Unit]
+Description=claude-session-starter (Docker)
+Documentation=https://github.com/VillegasMich/claude-session-auto-starter
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+Environment=CONTAINER=claude-session-starter
+Environment=IMAGE=claude-session-starter:latest
+Environment=VOLUME=claude-session-starter-data
+# Read for IMAGE only; values here override the Environment= defaults above. The token reaches
+# the container through --env-file, never the command line.
+EnvironmentFile=/etc/claude-session-starter/env
+# Remove a container left over from an unclean stop (e.g. power loss).
+ExecStartPre=-@DOCKER@ rm --force ${CONTAINER}
+ExecStart=@DOCKER@ run --rm --name ${CONTAINER} --env-file /etc/claude-session-starter/env --volume ${VOLUME}:/data ${IMAGE} daemon
+ExecStop=@DOCKER@ stop --time 30 ${CONTAINER}
+Restart=always
+RestartSec=60
+TimeoutStopSec=45
+
+[Install]
+WantedBy=multi-user.target
