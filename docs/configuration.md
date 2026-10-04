@@ -7,6 +7,12 @@ loaded at startup; variables already set in the environment win, and a malformed
 startup. Release builds (Docker image, systemd) never read `.env` — there the environment comes
 from `docker run --env-file` or systemd's `EnvironmentFile=`.
 
+`scripts/init-env.sh` writes `./.env` from `.env.example`: values come from the main checkout's
+`.env`, then exported variables, then the system timezone and
+`${XDG_DATA_HOME:-~/.local/share}/claude-session-starter` for `DATA_DIR`; the token is prompted
+for when none is found. An existing `.env` is kept unless `--force`. `orca.yaml` runs it as the
+Orca setup hook, so every new worktree starts with a working `.env`.
+
 ## Authentication
 
 ### `CLAUDE_CODE_OAUTH_TOKEN` (required)

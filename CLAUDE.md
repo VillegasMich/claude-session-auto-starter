@@ -20,10 +20,12 @@ behavior; update it in the same change when behavior changes. Sibling project wi
 ## Commands
 
 ```bash
+scripts/init-env.sh            # create ./.env (reuses the main checkout's; Orca runs it per worktree)
 cargo build                    # build
 cargo test                     # unit tests (no network, no real `claude` calls)
 cargo clippy --all-targets -- -D warnings   # lint (must pass)
 cargo fmt                      # format (must be clean)
+shellcheck scripts/*.sh        # lint the install/release scripts (CI runs it)
 docker build -t claude-session-starter .
 cargo run -- status            # read-only: is a window active, when does it reset
 cargo run -- once              # start a window now if none is active, then exit
@@ -78,6 +80,10 @@ cargo run -- once              # start a window now if none is active, then exit
 - Pure logic worth testing: next-check computation, `ACTIVE_HOURS` parsing and matching, config
   validation, parsing of the usage response and of `claude --output-format stream-json` output
   (`result` and `rate_limit_event` lines).
+- Install, release and CI mirror `../auto-git-commit-tool` and `../producer-tag-on-merge`
+  (`scripts/install.sh`, `uninstall.sh`, `bump-version.sh`, `release.sh`, `deploy/systemd/`,
+  `.github/workflows/`); keep them in sync with those when changing shared logic. Setup and the
+  release flow: `docs/repository-setup.md`.
 - Commit messages: Conventional Commits, validated against commitlint `@commitlint/config-conventional`.
 
 ## Commit message recommendation (required after every change)

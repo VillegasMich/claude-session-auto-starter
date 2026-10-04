@@ -1,0 +1,5 @@
+# Orca repository hooks (https://github.com/stablyai/orca). `setup` runs in every new worktree,
+# from the worktree, with $ORCA_ROOT_PATH set to the main checkout.
+scripts:
+  setup: |
+    scripts/init-env.sh --non-interactive

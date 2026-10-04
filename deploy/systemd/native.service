@@ -1,0 +1,38 @@
+# Runs a locally built claude-session-starter binary. Installed by scripts/install.sh, which
+# replaces @BIN@ with the installed binary path and @CLAUDE_DIR@ with the directory holding the
+# service's own copy of `claude` (copied from the host, outside any home directory).
+[Unit]
+Description=claude-session-starter (native binary)
+Documentation=https://github.com/VillegasMich/claude-session-auto-starter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=@BIN@ daemon
+EnvironmentFile=/etc/claude-session-starter/env
+# State, the isolated HOME/CLAUDE_CONFIG_DIR and the empty WORK_DIR live in the state directory,
+# never in a real user's ~/.claude. Don't set DATA_DIR or PATH in the env file: they would
+# override these.
+Environment=DATA_DIR=/var/lib/claude-session-starter
+Environment=PATH=@CLAUDE_DIR@:/usr/local/bin:/usr/bin:/bin
+DynamicUser=yes
+StateDirectory=claude-session-starter
+Restart=always
+RestartSec=60
+TimeoutStopSec=45
+
+# Hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target
