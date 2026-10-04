@@ -40,12 +40,13 @@ check is a few wasted tokens, never a shifted window.
 
 ```bash
 claude setup-token                          # once, on a machine with a browser; copy the token
+cp .env.example .env                        # put the token in CLAUDE_CODE_OAUTH_TOKEN
 docker build -t claude-session-starter .
 
 docker run -d \
   --name claude-session-starter \
   --restart unless-stopped \
-  -e CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-xxxxxxxx \
+  --env-file .env \
   -v claude-session-starter-data:/data \
   claude-session-starter
 ```
@@ -118,12 +119,15 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt
 ```
 
-Running locally requires `claude` on your `PATH` and either a normal `claude` login or
-`CLAUDE_CODE_OAUTH_TOKEN` exported:
+Running locally requires `claude` on your `PATH` and a `CLAUDE_CODE_OAUTH_TOKEN` (the starter
+uses an isolated config directory, so your normal `claude` login is not visible to it). Debug
+builds load `./.env` automatically (shell variables win), so copy `.env.example` to `.env`, set
+the token and a `DATA_DIR` outside any git repository, then:
 
 ```bash
-DATA_DIR=/tmp/css cargo run -- status
-DATA_DIR=/tmp/css cargo run -- start --dry-run
+cargo run -- start --dry-run   # prints the command; sends nothing
+cargo run -- check
+cargo run -- status
 ```
 
 ## Disclaimer

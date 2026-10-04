@@ -2,13 +2,19 @@
 
 All settings come from environment variables. Invalid values abort startup with a clear error.
 
+**Development builds only** (`cargo run`): if `./.env` exists in the current directory it is
+loaded at startup; variables already set in the environment win, and a malformed file aborts
+startup. Release builds (Docker image, systemd) never read `.env` — there the environment comes
+from `docker run --env-file` or systemd's `EnvironmentFile=`.
+
 ## Authentication
 
 ### `CLAUDE_CODE_OAUTH_TOKEN` (required)
 
 Long-lived **Claude Pro** (or Max) subscription token created with `claude setup-token` on a
 machine with a browser. It is passed to the `claude` child process through its environment and
-never logged.
+never logged. It must start with `sk-ant-oat`; an API key (`sk-ant-api…`) or the browser's
+authorization code (`code#state`, an intermediate step of `claude setup-token`) is rejected.
 
 This is the only supported authentication. `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`,
 `ANTHROPIC_BASE_URL` and the Bedrock/Vertex/Foundry switches are rejected at startup: API usage is
@@ -61,7 +67,8 @@ window on your plan. Must be a model available to Claude Code on Pro (`haiku` or
 
 ### `STARTER_PROMPT` (default: `hi`)
 
-The message sent. Keep it short; the reply is limited by the system prompt to one word.
+The message sent. Keep it short; the reply is limited by the system prompt to one word. At most
+200 characters, and it must not start with `-`.
 
 ## Paths
 
@@ -77,7 +84,9 @@ $DATA_DIR/
 └── work/               # WORK_DIR: always empty, cwd of the starter message
 ```
 
-Mount a volume here in Docker. `work/` must stay empty; startup fails if it isn't.
+Must be an absolute path. Mount a volume here in Docker. `work/` must stay empty, and `DATA_DIR`
+must not be inside a git repository or below a `CLAUDE.md` (Claude Code would load it); startup
+fails otherwise.
 
 ## Logging
 

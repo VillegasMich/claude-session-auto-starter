@@ -37,9 +37,10 @@ cargo run -- once              # start a window now if none is active, then exit
 - **Subscription only, never the API.** Auth is a claude.ai OAuth token (`claude setup-token` →
   `CLAUDE_CODE_OAUTH_TOKEN`). Never add support for `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`,
   `--bare`, Bedrock/Vertex/Foundry, or an Anthropic SDK crate. Preflight refuses to start if any of
-  those variables is set and requires `claude auth status --json` to report
-  `authMethod: "claude.ai"`. The child `claude` gets a from-scratch environment so an API key can
-  never leak into it. The OAuth usage endpoint (`api.anthropic.com/api/oauth/usage`) is allowed:
+  those variables is set and requires `claude auth status --json` to report a subscription
+  `authMethod` (`oauth_token` for `CLAUDE_CODE_OAUTH_TOKEN`, `claude.ai` for an interactive
+  login) with `apiProvider: "firstParty"`. The child `claude` gets a from-scratch environment so
+  an API key can never leak into it. The OAuth usage endpoint (`api.anthropic.com/api/oauth/usage`) is allowed:
   it is subscription data, not billed API usage.
 - **The starter message must cost as few tokens as possible.** It always runs:
   - in `WORK_DIR`, an empty directory owned by the service (never this repo, never a user
@@ -69,12 +70,14 @@ cargo run -- once              # start a window now if none is active, then exit
 - Rust edition 2024. Errors: `anyhow` at the top level, `thiserror` for module error types if needed.
 - Logging: `tracing`, level via `RUST_LOG`, to stdout.
 - Config only from environment variables (see `docs/configuration.md`). Add new settings there, in
-  the README table and in `.env.example` (once it exists).
+  the README table and in `.env.example`. Only exception: debug builds (`cargo run`) load `./.env`
+  as a dev convenience (existing variables win); release builds never read it.
 - Keep external interactions behind thin traits so the scheduler is unit tested with fakes:
   `Clock` (time + sleep), `UsageProbe` (is a window active / when does it reset), `Starter`
   (send the starter message), `StateStore` (last known window).
 - Pure logic worth testing: next-check computation, `ACTIVE_HOURS` parsing and matching, config
-  validation, parsing of the usage response and of `claude --output-format json` output.
+  validation, parsing of the usage response and of `claude --output-format stream-json` output
+  (`result` and `rate_limit_event` lines).
 - Commit messages: Conventional Commits, validated against commitlint `@commitlint/config-conventional`.
 
 ## Commit message recommendation (required after every change)

@@ -26,7 +26,7 @@ rotates, and two clients refreshing the same login can log one of them out.
 When the token expires the starter fails with an auth error, visible in the logs and in
 `claude-session-starter check`. Create a new one and restart.
 
-## Docker image (planned)
+## Docker image
 
 Multi-stage build:
 
