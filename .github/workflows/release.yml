@@ -45,7 +45,7 @@ jobs:
           echo "::error::Releases are made from main; run this workflow on main (got $GITHUB_REF)"
           exit 1
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # history and tags, for the auto bump
 

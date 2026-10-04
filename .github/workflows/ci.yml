@@ -24,7 +24,7 @@ jobs:
     name: fmt, clippy, tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -48,7 +48,7 @@ jobs:
       # Docker Hub repository, e.g. "johndoe/claude-session-starter". See docs/repository-setup.md.
       IMAGE: ${{ vars.DOCKERHUB_IMAGE || format('{0}/claude-session-starter', vars.DOCKERHUB_USERNAME || 'local') }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker/setup-qemu-action@v3
         if: env.PUBLISH == 'true'
       - uses: docker/setup-buildx-action@v3
