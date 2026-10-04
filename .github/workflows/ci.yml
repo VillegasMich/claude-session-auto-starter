@@ -54,7 +54,7 @@ jobs:
       - uses: docker/setup-buildx-action@v3
       - name: Compute image tags
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE }}
           # Releases: 1.2.3, 1.2 and latest (latest is skipped for pre-releases).
