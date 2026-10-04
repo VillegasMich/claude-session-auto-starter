@@ -136,8 +136,10 @@ the GitHub release and publishes the image). See
 
 Running locally requires `claude` on your `PATH` and a `CLAUDE_CODE_OAUTH_TOKEN` (the starter
 uses an isolated config directory, so your normal `claude` login is not visible to it). Debug
-builds load `./.env` automatically (shell variables win), so copy `.env.example` to `.env`, set
-the token and a `DATA_DIR` outside any git repository, then:
+builds load `./.env` automatically (shell variables win). `scripts/init-env.sh` creates it from
+`.env.example`, reusing the main checkout's `.env` (token included) and filling `TIMEZONE` and a
+`DATA_DIR` outside any git repository; it asks for the token if it finds none. In
+[Orca](https://github.com/stablyai/orca), `orca.yaml` runs it for every new worktree. Then:
 
 ```bash
 cargo run -- start --dry-run   # prints the command; sends nothing

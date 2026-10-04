@@ -20,6 +20,7 @@ behavior; update it in the same change when behavior changes. Sibling project wi
 ## Commands
 
 ```bash
+scripts/init-env.sh            # create ./.env (reuses the main checkout's; Orca runs it per worktree)
 cargo build                    # build
 cargo test                     # unit tests (no network, no real `claude` calls)
 cargo clippy --all-targets -- -D warnings   # lint (must pass)
