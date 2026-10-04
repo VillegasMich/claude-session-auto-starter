@@ -49,7 +49,7 @@ jobs:
       IMAGE: ${{ vars.DOCKERHUB_IMAGE || format('{0}/claude-session-starter', vars.DOCKERHUB_USERNAME || 'local') }}
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v4
         if: env.PUBLISH == 'true'
       - uses: docker/setup-buildx-action@v3
       - name: Compute image tags
