@@ -108,7 +108,7 @@ jobs:
             echo "::error::Set the DOCKERHUB_USERNAME variable and DOCKERHUB_TOKEN secret (docs/repository-setup.md)"
             exit 1
           fi
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         if: env.PUBLISH == 'true'
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
